@@ -74,8 +74,8 @@ def mock_stock_service(monkeypatch):
             for i, t in enumerate(tickers)
         ]
 
-    monkeypatch.setattr(stock_service, "fetch_stock_details", mock_fetch_details)
-    monkeypatch.setattr(stock_service, "compile_stock_candidates", mock_compile_candidates)
+    monkeypatch.setattr("backend.app.main.fetch_stock_details", mock_fetch_details)
+    monkeypatch.setattr("backend.app.main.compile_stock_candidates", mock_compile_candidates)
 
 @pytest.fixture(autouse=True)
 def setup_db():
