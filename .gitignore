@@ -1,0 +1,36 @@
+# Environment variables and secrets
+.env
+.env.*
+
+# Python build, runtime caches, and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node.js dependencies and build outputs
+node_modules/
+dist/
+dist-ssr/
+*.local
+out/
+build/
+
+# Database files
+*.db
+*.sqlite3
+*.sqlite
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Product description (as requested to be gitignored)
+product_description.md
