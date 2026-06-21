@@ -100,3 +100,57 @@ def compile_stock_candidates(tickers: List[str]) -> List[Dict[str, Any]]:
         candidates.append(candidate_data)
     
     return candidates
+
+from pydantic import BaseModel, Field
+
+class GeminiRecommendationSchema(BaseModel):
+    ticker: str = Field(..., description="The ticker symbol of the chosen stock, in uppercase.")
+    criteria: str = Field(..., description="The strategy criteria used for choice: must be one of 'biggest_loser', 'underrated', or 'news_delta'.")
+    reasoning: str = Field(..., description="A detailed financial analysis explaining why this stock was selected under the given criteria, including key stats.")
+
+def generate_gemini_recommendation(candidates: List[Dict[str, Any]], api_key: str) -> Dict[str, Any]:
+    """
+    Query the Gemini API to analyze stock candidates and pick the best one for this week.
+    """
+    from google import genai
+    from google.genai import types
+    import json
+
+    client = genai.Client(api_key=api_key)
+    
+    candidates_str = ""
+    for c in candidates:
+        candidates_str += (
+            f"- Ticker: {c['ticker']}, Name: {c['name']}, Price: {c['price']} {c['currency']}\n"
+            f"  P/E Ratio: {c.get('pe_ratio') or 'N/A'}, 7d Price Change: {c.get('weekly_change_percent') or 0.0}%\n"
+            f"  7d Volume Delta: {c.get('volume_delta') or 1.0}x, Sector: {c.get('sector') or 'N/A'}, Industry: {c.get('industry') or 'N/A'}\n"
+            f"  Description: {c.get('summary', '')[:120]}...\n\n"
+        )
+        
+    prompt = f"""
+You are an expert quantitative stock trader and financial advisor.
+Your goal is to select the single best stock recommendation for this week from the following list of candidates:
+
+{candidates_str}
+
+Choose the stock that fits best into one of these three strategies:
+1. "biggest_loser": Experienced a notable weekly price drop but remains fundamentally stable, suggesting a strong contrarian/oversold buy opportunity.
+2. "underrated": Trade at a low P/E ratio, showing solid underlying value/earnings.
+3. "news_delta": Experienced a trading volume spike (volume delta > 1.0) indicating a strong catalyst/momentum change in the news.
+
+Analyze all options and return your selection. You must pick exactly one ticker.
+"""
+
+    response = client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=GeminiRecommendationSchema,
+            temperature=0.2,
+        ),
+    )
+    
+    result = json.loads(response.text)
+    return result
+

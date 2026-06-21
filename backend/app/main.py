@@ -208,57 +208,73 @@ def generate_weekly_recommendation(db: Session = Depends(get_db)):
     reasoning = ""
     criteria = "underrated"
     
-    # 1. LLM logic stub or actual run
+    # 1. LLM logic actual run
     if api_key:
         try:
-            # We will implement actual LLM logic here once key is provided.
-            # For now, let's fall back to a mock/rule-based picker and prepare the logic.
-            pass
+            import logging
+            logger = logging.getLogger(__name__)
+            from backend.app.stock_service import generate_gemini_recommendation
+            gemini_rec = generate_gemini_recommendation(candidates, api_key)
+            
+            # Find the corresponding candidate detail in our compiled list
+            rec_ticker = gemini_rec["ticker"].upper()
+            selected_candidate = next((c for c in candidates if c["ticker"] == rec_ticker), None)
+            
+            if selected_candidate:
+                criteria = gemini_rec["criteria"]
+                reasoning = gemini_rec["reasoning"]
+            else:
+                # If LLM selected a ticker outside the list, create a dummy selected candidate representation
+                # using the returned ticker
+                details = fetch_stock_details(rec_ticker)
+                if details:
+                    selected_candidate = details
+                    criteria = gemini_rec["criteria"]
+                    reasoning = gemini_rec["reasoning"]
         except Exception as e:
-            # log warning
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error generating recommendation from Gemini: {e}")
             pass
             
-    # Simple rule-based picker fallback: Find the stock with lowest PE or biggest drop
-    # (LLM's criteria based on user's feedback: Biggest loser, Underrated, High News Trade Delta)
-    # Let's sort candidates to pick the "best" based on these rules
-    # E.g. pick biggest weekly loser or lowest positive P/E ratio
-    try:
-        # Try to find a stock with lowest positive PE
-        underrated = sorted([c for c in candidates if c.get('pe_ratio') and c['pe_ratio'] > 0], key=lambda x: x['pe_ratio'])
-        biggest_loser = sorted(candidates, key=lambda x: x.get('weekly_change_percent', 0.0))
-        high_volume = sorted(candidates, key=lambda x: x.get('volume_delta', 1.0), reverse=True)
-        
-        # Arbitrarily pick based on some rotation or standard order
-        # Let's pick biggest weekly loser if it dropped > 3%, else lowest PE, else high volume
-        if biggest_loser and biggest_loser[0].get('weekly_change_percent', 0.0) < -3.0:
-            selected_candidate = biggest_loser[0]
-            criteria = "biggest_loser"
-            reasoning = (
-                f"Selected {selected_candidate['name']} ({selected_candidate['ticker']}) because it experienced a significant weekly drop of "
-                f"{selected_candidate['weekly_change_percent']}%, and represents a potentially oversold entry opportunity. Current price is "
-                f"{selected_candidate['price']} {selected_candidate['currency']}."
-            )
-        elif underrated:
-            selected_candidate = underrated[0]
+    # Simple rule-based picker fallback (if Gemini API key is missing or failed)
+    if not selected_candidate:
+        try:
+            # Try to find a stock with lowest positive PE
+            underrated = sorted([c for c in candidates if c.get('pe_ratio') and c['pe_ratio'] > 0], key=lambda x: x['pe_ratio'])
+            biggest_loser = sorted(candidates, key=lambda x: x.get('weekly_change_percent', 0.0))
+            high_volume = sorted(candidates, key=lambda x: x.get('volume_delta', 1.0), reverse=True)
+            
+            # Let's pick biggest weekly loser if it dropped > 3%, else lowest PE, else high volume
+            if biggest_loser and biggest_loser[0].get('weekly_change_percent', 0.0) < -3.0:
+                selected_candidate = biggest_loser[0]
+                criteria = "biggest_loser"
+                reasoning = (
+                    f"Selected {selected_candidate['name']} ({selected_candidate['ticker']}) because it experienced a significant weekly drop of "
+                    f"{selected_candidate['weekly_change_percent']}%, and represents a potentially oversold entry opportunity. Current price is "
+                    f"{selected_candidate['price']} {selected_candidate['currency']}."
+                )
+            elif underrated:
+                selected_candidate = underrated[0]
+                criteria = "underrated"
+                reasoning = (
+                    f"Selected {selected_candidate['name']} ({selected_candidate['ticker']}) due to its highly attractive valuation with a P/E "
+                    f"ratio of {selected_candidate['pe_ratio']}. Solid financials suggest this stock is undervalued at the current market price of "
+                    f"{selected_candidate['price']} {selected_candidate['currency']}."
+                )
+            else:
+                selected_candidate = high_volume[0]
+                criteria = "news_delta"
+                reasoning = (
+                    f"Selected {selected_candidate['name']} ({selected_candidate['ticker']}) based on a spike in trading volume delta of "
+                    f"{selected_candidate['volume_delta']}x above average. This significant trade delta suggests high market interest and potential "
+                    f"short-term upward momentum. Current price is {selected_candidate['price']} {selected_candidate['currency']}."
+                )
+        except Exception as e:
+            # Fallback to simple selection
+            selected_candidate = candidates[0]
             criteria = "underrated"
-            reasoning = (
-                f"Selected {selected_candidate['name']} ({selected_candidate['ticker']}) due to its highly attractive valuation with a P/E "
-                f"ratio of {selected_candidate['pe_ratio']}. Solid financials suggest this stock is undervalued at the current market price of "
-                f"{selected_candidate['price']} {selected_candidate['currency']}."
-            )
-        else:
-            selected_candidate = high_volume[0]
-            criteria = "news_delta"
-            reasoning = (
-                f"Selected {selected_candidate['name']} ({selected_candidate['ticker']}) based on a spike in trading volume delta of "
-                f"{selected_candidate['volume_delta']}x above average. This significant trade delta suggests high market interest and potential "
-                f"short-term upward momentum. Current price is {selected_candidate['price']} {selected_candidate['currency']}."
-            )
-    except Exception as e:
-        # Fallback to simple selection
-        selected_candidate = candidates[0]
-        criteria = "underrated"
-        reasoning = f"Selected {selected_candidate['name']} based on standard valuation metrics. Price: {selected_candidate['price']}."
+            reasoning = f"Selected {selected_candidate['name']} based on standard valuation metrics. Price: {selected_candidate['price']}."
 
     # Date string format
     today_str = datetime.utcnow().strftime("%Y-%m-%d")
