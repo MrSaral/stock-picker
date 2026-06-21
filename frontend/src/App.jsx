@@ -112,7 +112,7 @@ function App() {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Failed to delete stock');
-      
+
       setMonitoredStocks((prev) => prev.filter((s) => s.ticker !== tickerToDelete));
     } catch (err) {
       alert(err.message);
@@ -165,19 +165,19 @@ function App() {
       {/* Header Section */}
       <header className="app-header">
         <div className="brand-section">
-          <h1>📈 Antigravity Stock Picker</h1>
+          <h1>Stock Picker</h1>
           <p>AI-driven weekly recommendations & manual price/cadence notifications</p>
         </div>
         <div className="header-actions">
-          <button 
-            className="btn btn-secondary" 
+          <button
+            className="btn btn-secondary"
             onClick={handleCheckAlerts}
             disabled={checkingAlerts}
           >
             {checkingAlerts ? <span className="loader"></span> : '🔔 Test Alert Check'}
           </button>
-          <button 
-            className="btn btn-primary" 
+          <button
+            className="btn btn-primary"
             onClick={handleGenerateRecommendation}
             disabled={generating}
           >
@@ -193,7 +193,7 @@ function App() {
             🔔 Test Alert Scan Completed
           </h4>
           <p>
-            Checked <strong>{alertResults.checked_count}</strong> stocks. 
+            Checked <strong>{alertResults.checked_count}</strong> stocks.
             Triggered <strong>{alertResults.triggered_count}</strong> alerts.
           </p>
           {alertResults.triggered_alerts.length > 0 ? (
@@ -390,9 +390,8 @@ function App() {
                       </span>
                       {stock.daily_change_percent !== null && (
                         <span
-                          className={`stock-change ${
-                            stock.daily_change_percent >= 0 ? 'change-up' : 'change-down'
-                          }`}
+                          className={`stock-change ${stock.daily_change_percent >= 0 ? 'change-up' : 'change-down'
+                            }`}
                         >
                           {stock.daily_change_percent >= 0 ? '▲' : '▼'}{' '}
                           {Math.abs(stock.daily_change_percent).toFixed(2)}%
