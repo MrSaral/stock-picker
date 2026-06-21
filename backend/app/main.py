@@ -335,6 +335,13 @@ def test_alert_check(db: Session = Depends(get_db)):
             
     if triggered_alerts:
         db.commit()
+        try:
+            from backend.app.notifier import send_email, build_alerts_html
+            html_content = build_alerts_html(triggered_alerts)
+            send_email("🔔 Stock Picker Alert Update", html_content)
+        except Exception as e:
+            # Log error but don't fail the request
+            pass
         
     return {
         "checked_count": len(stocks),
